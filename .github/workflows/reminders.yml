@@ -1,0 +1,29 @@
+name: reminders
+# Sends lock-screen reminders for the family tracker. Each run stays up ~5 minutes and checks every 15 s.
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch: {}
+concurrency:
+  group: reminders
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --omit=dev
+      - run: node index.mjs
+        env:
+          SERVER_SK: ${{ secrets.SERVER_SK }}
+          VAPID_PUBLIC: ${{ secrets.VAPID_PUBLIC }}
+          VAPID_PRIVATE: ${{ secrets.VAPID_PRIVATE }}
+          RUN_SECONDS: '285'
+          TICK_SECONDS: '15'

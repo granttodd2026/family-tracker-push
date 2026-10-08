@@ -1,0 +1,1 @@
+{ "name": "family-tracker-push", "private": true, "type": "module", "dependencies": { "nostr-tools": "^2.7.0", "web-push": "^3.6.7", "ws": "^8.18.0" } }
