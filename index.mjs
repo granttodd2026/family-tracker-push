@@ -74,7 +74,18 @@ async function send(sub, msg, ttl) {
   try { await webpush.sendNotification(sub, JSON.stringify(msg), { TTL: ttl, urgency: 'high' }); return 'ok'; }
   catch (e) { if (e.statusCode === 404 || e.statusCode === 410) return 'dead'; log('push error', e.statusCode || '', (e.body || e.message || '').toString().slice(0, 120)); return 'err'; }
 }
+// If another runner (e.g. box + Actions) saved newer state, merge it so nothing is sent twice.
+function mergeNewerState() {
+  if (!stateEv || stateEv.created_at <= lastStateCa) return;
+  try {
+    const o = JSON.parse(nip44.decrypt(stateEv.content, selfKey));
+    for (const [sp, m] of Object.entries(o.sent || {})) { state.sent[sp] ||= {}; for (const [k, t] of Object.entries(m)) if (!state.sent[sp][k]) state.sent[sp][k] = t; }
+    for (const [k, t] of Object.entries(o.dead || {})) state.dead[k] ||= t;
+    lastStateCa = stateEv.created_at;
+  } catch (e) { log('state merge failed', e.message); }
+}
 async function tick() {
+  mergeNewerState();
   const now = Date.now();
   const spaces = new Map();
   for (const [k, ev] of latest) { const [pk, d] = k.split('|'); if (!spaces.has(pk)) spaces.set(pk, { sched: null, subs: [] }); const sp = spaces.get(pk); let obj; try { obj = JSON.parse(nip44.decrypt(ev.content, nip44.getConversationKey(SK, pk))); } catch { continue; } if (d === 'sched') sp.sched = obj; else if (d.startsWith('sub:') && !obj.off && obj.sub && obj.sub.endpoint && !state.dead[h8(obj.sub.endpoint)]) sp.subs.push({ dev: d.slice(4), ...obj }); }
